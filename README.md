@@ -212,7 +212,7 @@ targets by default, but edits a target only when that application is installed:
 | sioyek | Updates interface colors while preserving PDF recoloring settings. | Yes, when qt6ct is installed. |
 | pcmanfm-qt | Uses the shared qt6ct palette without generating an application stylesheet or special launch command. | Yes, when qt6ct is installed. |
 | qtile | Reloads the installed Qtile palette snippet, which reads chthm's shared palette snapshot. | Not applicable. |
-| qutebrowser | Updates its palette variables and local themed blank page. | Yes, when qt6ct is installed. |
+| qutebrowser | Updates its palette variables, native website appearance and local themed blank page. | Yes, when qt6ct is installed. |
 
 `qt6ct` is a registered platform adapter rather than a fifteenth default
 application. chthm activates it automatically when an installed, selected Qt 6
@@ -454,8 +454,9 @@ c.colors.tabs.selected.odd.fg = chthm_background
 ```
 
 Other interface color assignments can use the same variables. The installer
-palette snippet preserves existing browser options and color assignments. The qutebrowser runtime target additionally manages the blank
-page and URL settings described below.
+palette snippet preserves existing browser options and color assignments. The
+qutebrowser runtime target additionally manages native website appearance, the blank page
+and URL settings described below.
 
 ## Application adapters
 
@@ -538,11 +539,29 @@ exports; Rofi does not need environment-variable expressions for these colors.
 ### Firefox and LibreWolf
 
 Adds application-specific marked blocks to each selected browser profile's
-chrome/userChrome.css and user.js.
+chrome/userChrome.css, chrome/userContent.css and user.js.
 The latter enables custom browser stylesheets. Toolbars and unselected tabs
 use the background/foreground pair; selected tabs invert the pair. Restart
 the affected browser to apply. Browser interface changes can require CSS updates
 on future Firefox or LibreWolf releases.
+
+The userContent.css block applies the same background and foreground to the
+Firefox or LibreWolf Settings page (about:preferences), including its canvas,
+cards, dialogs, inputs and ordinary/deemphasized text. This replaces the
+browsers' built-in dark gray Settings surfaces and follows every later theme
+change.
+
+The userChrome.css block also applies the palette to browser context menus and
+popup panels. Menu surfaces, text, borders, icons and separators use the theme
+pair; hovered or keyboard-active menu rows invert the pair in the same style as
+the selected tab. Browser chrome and Settings controls use square geometry:
+tabs, address/search fields, toolbar buttons, popup panels, menu rows, cards,
+dialogs, inputs and buttons have zero-radius corners.
+
+Toolbar address/search fields, their focus states, autocomplete panels, result
+rows and one-off search buttons use the theme pair as well. Hovered or selected
+results invert it. Firefox Home and New Tab search controls receive the same
+background, foreground and square geometry through userContent.css.
 
 Each selected profile also receives a local chthm-home.html blank page. The
 page uses the theme's background color with no visible content, scripts,
@@ -555,6 +574,20 @@ preferences take effect when the browser starts; chthm does not restart it
 automatically. After the initial restart, reload an already open home page
 to see a later color update. The separate new-tab preference is preserved.
 See Mozilla's [homepage and startup reference](https://firefox-admin-docs.mozilla.org/reference/policies/homepage/).
+
+Firefox and LibreWolf disable website color overriding
+(`browser.display.document_color_use = 1`). The native website appearance
+preference advertises light or dark according to the theme background; sites
+can choose how to respond. Current Gecko uses standard document colors with
+forced colors off, so arbitrary theme hex colors are not applied to websites.
+Explicit website colors take precedence. chthm does not inject website CSS,
+recolor icons, remove gradients, or add exceptions for particular sites. The
+content stylesheet only themes browser-owned Settings, Home and New Tab pages.
+See Mozilla's [website appearance documentation](https://support.mozilla.org/en-US/kb/change-website-appearance-settings-firefox).
+
+Neither browser's fingerprint-resistance settings are changed. LibreWolf may
+standardize appearance preferences under its privacy protections; chthm accepts
+that behavior instead of forcing custom website colors.
 
 The page stays inside its profile rather than relying on the original theme
 file or an external server. Multiple selected profiles each get their own
@@ -667,7 +700,20 @@ renders its own drawing area, so these surfaces do not simply inherit a
 QPalette. It complements qt6ct while preserving PDF page recoloring. See the
 [Sioyek implementation](https://raw.githubusercontent.com/ahrm/sioyek/main/pdf_viewer/main_widget.cpp).
 
-### qutebrowser blank page
+### qutebrowser website appearance and blank page
+
+The qutebrowser target advertises a light/dark website preference derived from
+the theme background and disables automatic dark-mode recoloring. Websites
+keep their own CSS, icons, text, animations and controls. No website stylesheet
+is generated or loaded, and there are no per-site exceptions.
+
+qutebrowser exposes a fallback page background but no matching default text
+color. A dark fallback alone makes unstyled black text unreadable, so chthm
+keeps the native white fallback. Sites supporting a light/dark preference can
+select their own matching palette; this does not give arbitrary sites the
+exact theme background. The local blank page and browser interface use the
+exact palette colors. See qutebrowser's
+[appearance settings](https://qutebrowser.org/doc/help/settings.html#colors.webpage.preferred_color_scheme).
 
 On a theme change, the qutebrowser target writes a local blank HTML page at
 ~/.local/share/chthm/qutebrowser/blank.html, honoring XDG_DATA_HOME. The entire
@@ -677,14 +723,14 @@ remote assets or web server. Each successful theme change updates that file.
 The target adds or updates a separate marked block at the end of config.py.
 It sets url.default_page and url.start_pages to the page's file URL, so empty
 new tabs and normal startup use the themed page. It disables automatic webpage
-dark-mode recoloring for the local page through a matching file-URL rule,
-while leaving normal website settings unchanged. See qutebrowser's
+dark-mode recoloring for the local page through a matching file-URL rule.
+See qutebrowser's
 [URL settings](https://qutebrowser.org/doc/help/settings.html#url.default_page).
 
 Existing configuration text is retained; the managed block follows earlier
 URL assignments so it takes effect. Changed existing files receive .bak
 backups. An installed qutebrowser without config.py receives a minimal config
-which loads autoconfig and sets the blank-page options. Absent applications
+which loads autoconfig and sets the blank-page and native website appearance options. Absent applications
 are skipped even when explicitly selected or given a custom destination.
 
 To update only qutebrowser:
@@ -693,13 +739,11 @@ To update only qutebrowser:
 chthm kimbie_dark --targets qutebrowser
 ```
 
-The generated file and config settings are first created when you apply a
+The generated files and config settings are first created when you apply a
 theme, rather than during installation. Default reload behavior requests a
 browser restart after writing the files and palette snapshot. With --no-reload,
-the HTML still updates. Reload the browser config with :config-source to adopt
-new URL settings, and reload an already open blank page to see its new color.
-Other tabs keep their own content and normal session-restore
-behavior. No existing tabs are redirected to the blank page.
+the files still update. Restart qutebrowser to adopt its native color-scheme settings. Existing tabs retain their URLs and normal
+session-restore behavior; they are not redirected to the blank page.
 
 Override locations with qutebrowser_config and qutebrowser_page in config.toml,
 or --qutebrowser-config and --qutebrowser-page for one invocation. Explicit
@@ -865,7 +909,7 @@ rerun installation with a usable collection.
    # <<< chthm qutebrowser palette <<<
    ```
 
-   Remove its separate blank-page block as well:
+   Remove its separate blank-page/website-appearance block as well:
 
    ```
    # >>> chthm qutebrowser blank page >>>
@@ -873,7 +917,8 @@ rerun installation with a usable collection.
    ```
 
    The generated qutebrowser/blank.html under the chthm data directory can then
-   be removed if no longer wanted. Restore any preferred URL settings.
+   be removed if no longer wanted. Restore
+   any preferred URL, dark-mode and website background settings.
 
    Template configs using colors return to their hardcoded defaults when the
    managed block is removed. Replace any chthm_* variables you adopted directly

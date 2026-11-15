@@ -45,6 +45,9 @@ class LibreWolfTests(unittest.TestCase):
 
     def test_xdg_profile_is_themed_without_touching_firefox(self):
         profile = self.registry(self.config / "librewolf/librewolf")
+        original = ('user_pref("privacy.resistFingerprinting", true);\n'
+                    'user_pref("browser.display.document_color_use", 1);\n')
+        (profile / "user.js").write_text(original)
         firefox = self.root / ".mozilla/firefox/keep"
         firefox.mkdir(parents=True)
         code, error = self.apply()
@@ -52,6 +55,15 @@ class LibreWolfTests(unittest.TestCase):
         self.assertIn("background-color: #112233", (profile / "chthm-home.html").read_text())
         self.assertIn("/* chthm:begin librewolf */", (profile / "chrome/userChrome.css").read_text())
         self.assertIn("// chthm:begin librewolf", (profile / "user.js").read_text())
+        user = (profile / "user.js").read_text()
+        self.assertTrue(user.startswith(original))
+        managed = user.split("// chthm:begin librewolf", 1)[1]
+        self.assertIn('user_pref("browser.display.document_color_use", 1);', managed)
+        self.assertNotIn('browser.display.background_color', managed)
+        self.assertNotIn('browser.display.foreground_color', managed)
+        self.assertIn('user_pref("layout.css.prefers-color-scheme.content-override", 0);', managed)
+        self.assertNotIn("privacy.resistFingerprinting", managed)
+        self.assertEqual((profile / "user.js.bak").read_text(), original)
         self.assertEqual(list(firefox.iterdir()), [])
 
     def test_legacy_profile_precedes_xdg_profile(self):

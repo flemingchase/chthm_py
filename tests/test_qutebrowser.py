@@ -20,6 +20,7 @@ class QutebrowserTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.config = self.root / 'config/qutebrowser/config.py'
         self.page = self.root / 'data/chthm/qutebrowser/blank.html'
+        self.stylesheet = self.page.with_name('website-colors.css')
         self.theme = self.root / 'theme.toml'
         self.theme.write_text('[colors.primary]\nbackground="#112233"\nforeground="#ddeeff"\n')
         environment = patch.dict(os.environ, {'HOME': str(self.root),
@@ -51,13 +52,19 @@ class QutebrowserTests(unittest.TestCase):
         self.assertIn('url.start_pages', self.config.read_text())
         config_before = self.config.read_bytes()
         page_before = self.page.read_bytes()
-        self.theme.write_text('[colors.primary]\nbackground="#445566"\nforeground="#ffffff"\n')
+        self.assertFalse(self.stylesheet.exists())
+        self.theme.write_text('[colors.primary]\nbackground="#fafafa"\nforeground="#111111"\n')
         result, error = self.run_cli()
         self.assertEqual(result, 0, error)
-        self.assertIn('background-color: #445566', self.page.read_text())
+        self.assertIn('background-color: #fafafa', self.page.read_text())
         self.assertEqual(self.page.with_name('blank.html.bak').read_bytes(), page_before)
-        self.assertEqual(self.config.read_bytes(), config_before)
+        self.assertNotEqual(self.config.read_bytes(), config_before)
+        self.assertFalse(self.stylesheet.exists())
+        self.assertEqual(self.config.with_name('config.py.bak').read_bytes(), config_before)
         self.assertEqual(self.config.read_text().count(BEGIN), 1)
+        changed = self.config.read_bytes()
+        self.assertEqual(self.run_cli()[0], 0)
+        self.assertEqual(self.config.read_bytes(), changed)
 
     def test_fresh_app_and_custom_page_path(self):
         self.commands.side_effect = lambda name, **kwargs: '/usr/bin/qutebrowser' if name == 'qutebrowser' else None
@@ -78,6 +85,7 @@ class QutebrowserTests(unittest.TestCase):
         self.assertEqual(result, 0, error)
         self.assertEqual(self.config.read_text(), original)
         self.assertFalse(self.page.exists())
+        self.assertFalse(self.stylesheet.exists())
         self.assertIn('blank.html', error)
 
     def test_invalid_config_cannot_publish_page_or_state(self):
@@ -88,6 +96,7 @@ class QutebrowserTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertEqual(self.config.read_text(), original)
             self.assertFalse(self.page.exists())
+            self.assertFalse(self.stylesheet.exists())
             self.assertFalse((self.root / 'state/chthm/current.toml').exists())
 
     def test_explicit_other_targets_do_not_update_or_restart_qutebrowser(self):
@@ -105,6 +114,18 @@ class QutebrowserTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertEqual(self.theme.read_bytes(), before)
         self.assertFalse(self.config.exists())
+
+    def test_upgrade_removes_only_managed_stylesheet_configuration(self):
+        self.config.parent.mkdir(parents=True)
+        original = 'config.load_autoconfig(False)\n'
+        original += 'c.content.user_stylesheets = ["custom.css"]\n'
+        previous = BEGIN + '\nconfig.set("content.user_stylesheets", ["website-colors.css"])\n' + END + '\n'
+        self.config.write_text(original + previous)
+        result, error = self.run_cli()
+        self.assertEqual(result, 0, error)
+        self.assertTrue(self.config.read_text().startswith(original))
+        self.assertNotIn('website-colors.css', self.config.read_text())
+        self.assertFalse(self.stylesheet.exists())
 
     def test_blank_page_settings_remain_last_and_markers_in_strings_are_ignored(self):
         original = 'text = """\n' + BEGIN + '\n' + END + '\n"""\n'
@@ -125,13 +146,17 @@ class QutebrowserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             blank_page_html('red; invalid', '#ffffff')
 
-    def test_settings_are_accepted_by_qutebrowser_and_darkmode_is_page_specific(self):
+    def test_settings_are_accepted_and_existing_stylesheets_survive_reloads(self):
         import importlib.util
         if importlib.util.find_spec('qutebrowser') is None:
             self.skipTest('Optional qutebrowser installation unavailable')
         page = self.root / 'a space/100% #blank.html'
         source = self.root / 'validate.py'
-        settings = blank_page_config('config.load_autoconfig(False)\n', page)
+        self.stylesheet.parent.mkdir(parents=True)
+        other = self.root / 'custom.css'
+        other.write_text('p { font-size: 18px; }')
+        settings = blank_page_config('config.load_autoconfig(False)\n', page, '#112233')
+        light_settings = blank_page_config(settings, page, '#fafafa')
         source.write_text('''
 import os
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
@@ -147,12 +172,22 @@ with patch.object(standarddir, 'config', return_value=os.environ['HOME']), patch
     config.instance = conf
     api = configfiles.ConfigAPI(conf, config.KeyConfig(conf), warn_autoconfig=False)
     conf.set_obj('colors.webpage.darkmode.enabled', True)
+    conf.set_obj('content.user_stylesheets', [''' + repr(str(other)) + '''])
+    exec(''' + repr(settings) + ''', {'config': api})
     exec(''' + repr(settings) + ''', {'config': api})
     assert not api.errors, api.errors
     assert conf.get('url.default_page') == QUrl(''' + repr(page.as_uri()) + ''')
     assert conf.get('url.start_pages')[0] == QUrl(''' + repr(page.as_uri()) + ''')
     assert conf.get('colors.webpage.darkmode.enabled', url=QUrl(''' + repr(page.as_uri()) + ''')) is False
-    assert conf.get('colors.webpage.darkmode.enabled', url=QUrl('https://example.org/')) is True
+    assert conf.get('colors.webpage.darkmode.enabled', url=QUrl('https://example.org/')) is False
+    assert conf.get('colors.webpage.bg').name() == '#ffffff'
+    assert conf.get('colors.webpage.preferred_color_scheme') == 'dark'
+    assert conf.get('content.user_stylesheets') == [''' + repr(str(other)) + ''']
+    exec(''' + repr(light_settings) + ''', {'config': api})
+    assert not api.errors, api.errors
+    assert conf.get('colors.webpage.bg').name() == '#ffffff'
+    assert conf.get('colors.webpage.preferred_color_scheme') == 'light'
+    assert len(conf.get('content.user_stylesheets')) == 1
 ''')
         result = subprocess.run([sys.executable, str(source)], capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)

@@ -1,9 +1,11 @@
-"""A local, theme-colored blank page and a small qutebrowser settings block."""
+"""Native website preferences and a theme-colored blank page for qutebrowser."""
 
 import ast
 import io
 from pathlib import Path
 import tokenize
+
+from .pages import color_scheme
 
 BEGIN = '# >>> chthm qutebrowser blank page >>>'
 END = '# <<< chthm qutebrowser blank page <<<'
@@ -18,17 +20,25 @@ def blank_page_pattern(filename):
     return "file://" + "".join(escapes.get(char, char) for char in path)
 
 
-def blank_page_config(text, filename):
-    """Override only the blank-page settings, after existing user assignments."""
+def blank_page_config(text, filename, background=None):
+    """Keep native preferences and blank-page settings after user assignments."""
     if not text.strip():
         text = 'config.load_autoconfig()\n'
     uri = Path(filename).absolute().as_uri()
     pattern = blank_page_pattern(filename)
+    website = ''
+    if background is not None:
+        website = f'''# Let websites choose their own colors; advertise only a light/dark preference.
+# Keep the native fallback: a dark canvas alone leaves unstyled text black.
+config.set("colors.webpage.bg", "white")
+config.set("colors.webpage.preferred_color_scheme", {color_scheme(background)!r})
+config.set("colors.webpage.darkmode.enabled", False)
+'''
     block = f'''{BEGIN}
 config.set("url.default_page", {uri!r})
 config.set("url.start_pages", [{uri!r}])
 config.set("colors.webpage.darkmode.enabled", False, pattern={pattern!r})
-{END}
+{website}{END}
 '''
     lines = text.splitlines(keepends=True)
     try:

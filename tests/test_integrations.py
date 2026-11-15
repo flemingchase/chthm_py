@@ -115,8 +115,12 @@ Locked=1
         (profile / "user.js").write_text(old_js)
         writes = firefox_writes(profile, VALUES)
         for target, text, _ in writes:
-            if target.suffix != ".html":
-                self.assertTrue(text.startswith(old_css if target.suffix == ".css" else old_js))
+            if target.name == "userChrome.css":
+                self.assertTrue(text.startswith(old_css))
+            elif target.name == "userContent.css":
+                self.assertTrue(text.startswith("/* chthm:begin firefox */"))
+            elif target.suffix == ".js":
+                self.assertTrue(text.startswith(old_js))
             target.write_text(text)
         for target, text, _ in firefox_writes(profile, VALUES):
             self.assertEqual(text, target.read_text())
@@ -137,6 +141,36 @@ Locked=1
         self.assertIn('.tabbrowser-tab[selected] .tab-background', css)
         self.assertIn('.tabbrowser-tab:not([selected]) .tab-label', css)
         self.assertIn('#nav-bar', css)
+
+    def test_firefox_context_menus_use_and_invert_palette(self):
+        css = firefox_css(VALUES)
+        self.assertIn('--panel-background-color: #0a0f14 !important;', css)
+        self.assertIn('--panel-text-color: #98d1ce !important;', css)
+        self.assertIn('menupopup::part(content)', css)
+        self.assertIn('background: var(--chthm-background) !important;', css)
+        self.assertIn(':is(menu, menuitem):is([_moz-menuactive], :hover):not([disabled])', css)
+        self.assertIn('background-color: var(--chthm-foreground) !important;', css)
+        self.assertIn('color: var(--chthm-background) !important;', css)
+        self.assertIn('menuseparator::before', css)
+
+    def test_firefox_chrome_uses_square_geometry(self):
+        css = firefox_css(VALUES)
+        self.assertIn('--border-radius-circle: 0px !important;', css)
+        self.assertIn('--toolbarbutton-border-radius: 0px !important;', css)
+        self.assertIn('--urlbar-border-radius: 0px !important;', css)
+        self.assertIn('--panel-menuitem-border-radius: 0px !important;', css)
+        self.assertIn('#urlbar-background, #searchbar', css)
+        self.assertIn('border-radius: 0 !important;', css)
+
+    def test_firefox_search_fields_and_results_use_palette(self):
+        css = firefox_css(VALUES)
+        self.assertIn('--toolbar-field-background-color-focus: #0a0f14 !important;', css)
+        self.assertIn('--toolbar-field-text-color-focus: #98d1ce !important;', css)
+        self.assertIn('--urlbar-background-color: #0a0f14 !important;', css)
+        self.assertIn('--urlbarview-background-color-selected: #98d1ce !important;', css)
+        self.assertIn('--urlbarview-text-color-selected: #0a0f14 !important;', css)
+        self.assertIn('#PopupSearchAutoComplete::part(content)', css)
+        self.assertIn('.searchbar-engine-one-off-item', css)
 
     def test_malformed_managed_block_rejected(self):
         with self.assertRaisesRegex(ValueError, "Malformed"):

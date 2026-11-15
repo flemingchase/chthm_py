@@ -1,6 +1,12 @@
-"""Offline blank HTML pages shared by browser integrations."""
+"""Blank pages and native color-scheme preferences shared by browsers."""
 
 import re
+
+
+def color_scheme(background):
+    """Advertise the light/dark preference that fits the theme background."""
+    red, green, blue = (int(background[index:index + 2], 16) for index in (1, 3, 5))
+    return "dark" if 299 * red + 587 * green + 114 * blue < 128000 else "light"
 
 
 def blank_page_html(background, foreground):

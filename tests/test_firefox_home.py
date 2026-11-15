@@ -55,6 +55,17 @@ class FirefoxHomeTests(unittest.TestCase):
         self.assertIn('<body></body>', page.read_text())
         self.assertNotIn('<script', page.read_text())
         self.assertNotIn('https:', page.read_text())
+        content = (self.profile / 'chrome/userContent.css').read_text()
+        self.assertIn('@-moz-document url-prefix("about:preferences")', content)
+        self.assertIn('--chthm-background: #112233', content)
+        self.assertIn('--chthm-foreground: #ddeeff', content)
+        self.assertIn('--background-color-canvas: var(--chthm-background)', content)
+        self.assertIn('--text-color: var(--chthm-foreground)', content)
+        self.assertIn('--card-border-radius: 0px', content)
+        self.assertIn('--input-border-radius: 0px', content)
+        self.assertIn('@-moz-document url("about:newtab"), url("about:home")', content)
+        self.assertIn('--newtab-background-color: var(--chthm-background)', content)
+        self.assertIn('--content-search-handoff-ui-color: var(--chthm-foreground)', content)
         user = (self.profile / 'user.js').read_text()
         self.assertTrue(user.startswith(original))
         prefs = preferences(user)
@@ -62,6 +73,17 @@ class FirefoxHomeTests(unittest.TestCase):
         self.assertEqual(prefs['browser.startup.page'], 1)
         self.assertIs(prefs['custom.keep'], True)
         self.assertIs(prefs['toolkit.legacyUserProfileCustomizations.stylesheets'], True)
+        self.assertEqual(prefs['browser.display.document_color_use'], 1)
+        self.assertEqual(prefs['layout.css.prefers-color-scheme.content-override'], 0)
+        self.assertFalse(any(name.startswith(('browser.display.background_color',
+                                              'browser.display.foreground_color'))
+                             for name in prefs))
+        self.assertNotIn('layout.css.always_underline_links', prefs)
+        for name in ('browser.anchor_color', 'browser.visited_color', 'browser.active_color'):
+            self.assertNotIn(name, prefs)
+        self.assertNotIn('domain(', content)
+        self.assertNotIn('forced-color', content)
+        self.assertNotIn('privacy.resistFingerprinting', prefs)
         self.assertEqual((self.profile / 'user.js.bak').read_text(), original)
         self.assertIn('%7C', prefs['browser.startup.homepage'])
 
@@ -69,12 +91,24 @@ class FirefoxHomeTests(unittest.TestCase):
         self.assertEqual(self.apply()[0], 0)
         page = self.profile / 'chthm-home.html'
         before = page.read_bytes()
+        content = self.profile / 'chrome/userContent.css'
+        content_before = content.read_bytes()
         prefs_before = (self.profile / 'user.js').read_bytes()
         self.theme.write_text('[colors.primary]\nbackground="#fafafa"\nforeground="#111111"\n')
         self.assertEqual(self.apply()[0], 0)
         self.assertIn('background-color: #fafafa', page.read_text())
+        self.assertIn('--chthm-background: #fafafa', content.read_text())
+        self.assertIn('--chthm-foreground: #111111', content.read_text())
+        self.assertEqual((content.with_name('userContent.css.bak')).read_bytes(),
+                         content_before)
+        prefs = preferences((self.profile / 'user.js').read_text())
+        self.assertEqual(prefs['browser.display.document_color_use'], 1)
+        self.assertEqual(prefs['layout.css.prefers-color-scheme.content-override'], 1)
+        for name in ('browser.anchor_color', 'browser.visited_color', 'browser.active_color'):
+            self.assertNotIn(name, prefs)
+        self.assertEqual((self.profile / 'user.js.bak').read_bytes(), prefs_before)
         self.assertEqual((self.profile / 'chthm-home.html.bak').read_bytes(), before)
-        self.assertEqual((self.profile / 'user.js').read_bytes(), prefs_before)
+        self.assertNotEqual((self.profile / 'user.js').read_bytes(), prefs_before)
         self.assertEqual((self.profile / 'user.js').read_text().count('// chthm:begin firefox'), 1)
 
     def test_existing_managed_block_moves_after_later_homepage_overrides(self):

@@ -138,9 +138,9 @@ def qt6ct_plan(theme, config):
 def qutebrowser_plan(theme, config):
     page, settings = config["qutebrowser_page"], config["qutebrowser"]
     colors = theme.colors["primary"]
-    updated = blank_page_config(read_text(settings), page)
+    updated = blank_page_config(read_text(settings), page, colors["background"])
     return [(page, blank_page_html(colors["background"], colors["foreground"]), True),
-            (settings, updated, True)], ["qutebrowser: themed blank page updated"]
+            (settings, updated, True)], ["qutebrowser: native website appearance and themed blank page updated"]
 
 
 def shared_palette_plan(theme, config):

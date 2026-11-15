@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 
-from .pages import blank_page_html
+from .pages import blank_page_html, color_scheme
 
 
 def read_text(filename):
@@ -213,6 +213,30 @@ def firefox_css(values):
         --toolbar-field-color: {fg} !important;
         --toolbar-field-focus-background-color: {bg} !important;
         --toolbar-field-focus-color: {fg} !important;
+        --toolbar-field-background-color-focus: {bg} !important;
+        --toolbar-field-text-color: {fg} !important;
+        --toolbar-field-text-color-focus: {fg} !important;
+        --toolbar-field-border-color: {fg} !important;
+        --toolbar-field-border-color-focus: {fg} !important;
+        --urlbar-background-color: {bg} !important;
+        --urlbar-background-color-focus: {bg} !important;
+        --urlbar-box-background-color: {bg} !important;
+        --urlbar-box-background-color-hover: {fg} !important;
+        --urlbar-box-background-color-active: {fg} !important;
+        --urlbar-box-background-color-focus: {bg} !important;
+        --urlbar-box-text-color: {fg} !important;
+        --urlbar-box-text-color-hover: {bg} !important;
+        --urlbar-box-text-color-active: {bg} !important;
+        --urlbar-box-text-color-focus: {fg} !important;
+        --urlbarview-action-button-background-color: {bg} !important;
+        --urlbarview-action-button-background-color-hover: {fg} !important;
+        --urlbarview-background-color-hover: {fg} !important;
+        --urlbarview-background-color-selected: {fg} !important;
+        --urlbarview-separator-color: {fg} !important;
+        --urlbarview-text-color-action: {fg} !important;
+        --urlbarview-text-color-hover: {bg} !important;
+        --urlbarview-text-color-secondary: {fg} !important;
+        --urlbarview-text-color-selected: {bg} !important;
         --toolbox-background-color: {bg} !important;
         --toolbox-background-color-inactive: {bg} !important;
         --tab-background-color: {bg} !important;
@@ -222,6 +246,31 @@ def firefox_css(values):
         --tab-text-color: {fg} !important;
         --tab-text-color-selected: {bg} !important;
         --tab-selected-textcolor: {bg} !important;
+        --panel-background-color: {bg} !important;
+        --panel-text-color: {fg} !important;
+        --panel-border-color: {fg} !important;
+        --panel-separator-color: {fg} !important;
+        --popup-background-color: {bg} !important;
+        --popup-border-color: {fg} !important;
+        --border-radius-xsmall: 0px !important;
+        --border-radius-small: 0px !important;
+        --border-radius-medium: 0px !important;
+        --border-radius-large: 0px !important;
+        --border-radius-xlarge: 0px !important;
+        --border-radius-circle: 0px !important;
+        --button-border-radius: 0px !important;
+        --input-border-radius: 0px !important;
+        --input-search-border-radius: 0px !important;
+        --panel-border-radius: 0px !important;
+        --panel-menuitem-border-radius: 0px !important;
+        --popup-border-radius: 0px !important;
+        --toolbarbutton-border-radius: 0px !important;
+        --urlbar-background-border-radius: 0px !important;
+        --urlbar-border-radius: 0px !important;
+        --urlbar-inner-border-radius: 0px !important;
+        --urlbarview-border-radius: 0px !important;
+        --urlbarview-icon-border-radius: 0px !important;
+        --urlbarview-row-border-radius: 0px !important;
     }}
     #navigator-toolbox, #titlebar, #TabsToolbar, #nav-bar,
     #PersonalToolbar, #toolbar-menubar, #sidebar-main,
@@ -231,6 +280,42 @@ def firefox_css(values):
     }}
     #urlbar-input, .searchbar-textbox {{
         color: var(--chthm-foreground) !important;
+    }}
+    #urlbar, .urlbar, #searchbar,
+    #PopupSearchAutoComplete {{
+        --toolbar-field-background-color: var(--chthm-background) !important;
+        --toolbar-field-background-color-focus: var(--chthm-background) !important;
+        --toolbar-field-text-color: var(--chthm-foreground) !important;
+        --toolbar-field-text-color-focus: var(--chthm-foreground) !important;
+        --toolbar-field-border-color: var(--chthm-foreground) !important;
+        --toolbar-field-border-color-focus: var(--chthm-foreground) !important;
+        --urlbar-background-color: var(--chthm-background) !important;
+        --urlbar-background-color-focus: var(--chthm-background) !important;
+        --urlbarview-background-color-hover: var(--chthm-foreground) !important;
+        --urlbarview-background-color-selected: var(--chthm-foreground) !important;
+        --urlbarview-text-color-hover: var(--chthm-background) !important;
+        --urlbarview-text-color-selected: var(--chthm-background) !important;
+        --urlbarview-text-color-action: var(--chthm-foreground) !important;
+        --urlbarview-text-color-secondary: var(--chthm-foreground) !important;
+        --urlbarview-separator-color: var(--chthm-foreground) !important;
+        background-color: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+    .urlbarView, .urlbarView-results,
+    #PopupSearchAutoComplete::part(content),
+    .search-panel-tree {{
+        background: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+    :is(.urlbarView-row, .searchbar-engine-one-off-item,
+        .search-panel-tree > .autocomplete-richlistitem):is([selected], :hover) {{
+        background-color: var(--chthm-foreground) !important;
+        color: var(--chthm-background) !important;
+    }}
+    #urlbar-background, #searchbar,
+    toolbarbutton, .toolbarbutton-icon,
+    button, input, select, menulist {{
+        border-radius: 0 !important;
     }}
     .tabbrowser-tab:not([selected]) .tab-background {{
         background: var(--chthm-background) !important;
@@ -250,20 +335,154 @@ def firefox_css(values):
     .tabbrowser-tab[selected] .tab-label {{
         color: var(--chthm-background) !important;
     }}
+    menupopup,
+    panel {{
+        --panel-background-color: var(--chthm-background) !important;
+        --panel-text-color: var(--chthm-foreground) !important;
+        --panel-border-color: var(--chthm-foreground) !important;
+        --panel-separator-color: var(--chthm-foreground) !important;
+        --popup-background-color: var(--chthm-background) !important;
+        --popup-border-color: var(--chthm-foreground) !important;
+        --text-color: var(--chthm-foreground) !important;
+        --text-color-deemphasized: var(--chthm-foreground) !important;
+        --text-color-disabled: var(--chthm-foreground) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+    menupopup::part(content),
+    panel::part(content) {{
+        background: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+        border-color: var(--chthm-foreground) !important;
+    }}
+    :is(menu, menuitem) {{
+        color: var(--chthm-foreground) !important;
+        fill: currentColor !important;
+        border-radius: 0 !important;
+    }}
+    :is(menu, menuitem):is([_moz-menuactive], :hover):not([disabled]) {{
+        background-color: var(--chthm-foreground) !important;
+        color: var(--chthm-background) !important;
+    }}
+    :is(menu, menuitem)[disabled] {{
+        color: var(--chthm-foreground) !important;
+    }}
+    menuseparator::before {{
+        border-color: var(--chthm-foreground) !important;
+    }}
+}}'''
+
+
+def firefox_content_css(values):
+    bg, fg = values["CHTHM_BACKGROUND"], values["CHTHM_FOREGROUND"]
+    return f'''@-moz-document url-prefix("about:preferences") {{
+    :root {{
+        --chthm-background: {bg} !important;
+        --chthm-foreground: {fg} !important;
+        --background-color-canvas: var(--chthm-background) !important;
+        --background-color-box: var(--chthm-background) !important;
+        --background-color-box-info: var(--chthm-background) !important;
+        --card-background-color: var(--chthm-background) !important;
+        --dialog-background-color: var(--chthm-background) !important;
+        --input-background-color: var(--chthm-background) !important;
+        --panel-background-color: var(--chthm-background) !important;
+        --popup-background-color: var(--chthm-background) !important;
+        --text-color: var(--chthm-foreground) !important;
+        --text-color-deemphasized: var(--chthm-foreground) !important;
+        --text-color-disabled: var(--chthm-foreground) !important;
+        --button-text-color: var(--chthm-foreground) !important;
+        --input-text-color: var(--chthm-foreground) !important;
+        --panel-text-color: var(--chthm-foreground) !important;
+        --border-color: var(--chthm-foreground) !important;
+        --border-radius-xsmall: 0px !important;
+        --border-radius-small: 0px !important;
+        --border-radius-medium: 0px !important;
+        --border-radius-large: 0px !important;
+        --border-radius-xlarge: 0px !important;
+        --border-radius-circle: 0px !important;
+        --button-border-radius: 0px !important;
+        --card-border-radius: 0px !important;
+        --dialog-border-radius: 0px !important;
+        --input-border-radius: 0px !important;
+        --input-search-border-radius: 0px !important;
+        --panel-border-radius: 0px !important;
+        --panel-menuitem-border-radius: 0px !important;
+        --popup-border-radius: 0px !important;
+        --select-border-radius: 0px !important;
+        background-color: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+
+    body, #preferences-root, .main-content {{
+        background-color: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+
+    button, input, select, menulist, dialog,
+    .card, .dialogBox, .info-box-container {{
+        border-radius: 0 !important;
+    }}
+}}
+
+@-moz-document url("about:newtab"), url("about:home") {{
+    :root {{
+        --chthm-background: {bg} !important;
+        --chthm-foreground: {fg} !important;
+        --newtab-background-color: var(--chthm-background) !important;
+        --newtab-background-color-secondary: var(--chthm-background) !important;
+        --newtab-text-primary-color: var(--chthm-foreground) !important;
+        --newtab-text-secondary-color: var(--chthm-foreground) !important;
+        background-color: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+
+    body, .activity-stream, .outer-wrapper,
+    .search-wrapper, .search-inner-wrapper {{
+        background-color: var(--chthm-background) !important;
+        color: var(--chthm-foreground) !important;
+    }}
+
+    content-search-handoff-ui,
+    moz-urlbar {{
+        --content-search-handoff-ui-background-color: var(--chthm-background) !important;
+        --content-search-handoff-ui-color: var(--chthm-foreground) !important;
+        --content-search-handoff-ui-fill: var(--chthm-foreground) !important;
+        --content-search-handoff-ui-caret-color: var(--chthm-foreground) !important;
+        --urlbar-background-color: var(--chthm-background) !important;
+        --urlbar-background-color-focus: var(--chthm-background) !important;
+        --toolbar-field-text-color: var(--chthm-foreground) !important;
+        --toolbar-field-text-color-focus: var(--chthm-foreground) !important;
+        --urlbarview-background-color-hover: var(--chthm-foreground) !important;
+        --urlbarview-background-color-selected: var(--chthm-foreground) !important;
+        --urlbarview-text-color-hover: var(--chthm-background) !important;
+        --urlbarview-text-color-selected: var(--chthm-background) !important;
+        border-radius: 0 !important;
+    }}
 }}'''
 
 
 def firefox_writes(profile, values, application="firefox"):
-    chrome, user = profile / "chrome/userChrome.css", profile / "user.js"
+    chrome = profile / "chrome/userChrome.css"
+    content = profile / "chrome/userContent.css"
+    user = profile / "user.js"
     homepage = profile / "chthm-home.html"
-    preferences = '\n'.join([
+    content_css = firefox_content_css(values)
+    preferences = [
         'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);',
         'user_pref("browser.startup.homepage", ' + json.dumps(homepage.absolute().as_uri()) + ');',
         'user_pref("browser.startup.page", 1);',
+    ]
+    # Let sites choose their own palette using the native light/dark preference.
+    # Custom document colors in current Gecko require forced-color mode.
+    preferences.extend([
+        'user_pref("browser.display.document_color_use", 1);',
+        'user_pref("layout.css.prefers-color-scheme.content-override", ' +
+        ('0' if color_scheme(values["CHTHM_BACKGROUND"]) == "dark" else '1') + ');',
     ])
+    preferences = '\n'.join(preferences)
     return [
         (homepage, blank_page_html(values["CHTHM_BACKGROUND"], values["CHTHM_FOREGROUND"]), True),
         (chrome, managed_block(read_text(chrome), firefox_css(values), application), True),
+        (content, managed_block(read_text(content), content_css, application), True),
         (user, managed_block(read_text(user), preferences, application, "js"), True),
     ]
 
