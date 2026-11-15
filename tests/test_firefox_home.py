@@ -33,6 +33,10 @@ class FirefoxHomeTests(unittest.TestCase):
             'XDG_STATE_HOME': str(self.root / 'state')})
         environment.start()
         self.addCleanup(environment.stop)
+        commands = patch('chthm.cli.shutil.which',
+                         side_effect=lambda name: '/usr/bin/firefox' if name == 'firefox' else None)
+        commands.start()
+        self.addCleanup(commands.stop)
 
     def apply(self, *arguments):
         error = io.StringIO()

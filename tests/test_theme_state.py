@@ -34,7 +34,7 @@ class ThemeStateTests(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         commands = patch('chthm.cli.shutil.which', return_value=None)
-        commands.start()
+        self.commands = commands.start()
         self.addCleanup(commands.stop)
 
     def run_cli(self, *args):
@@ -86,6 +86,7 @@ class ThemeStateTests(unittest.TestCase):
         self.assertFalse(self.state.exists())
 
     def test_alacritty_is_an_output_and_legacy_import_readers_still_work(self):
+        self.commands.side_effect = lambda name: '/usr/bin/alacritty' if name == 'alacritty' else None
         code, _, error = self.run_cli('kimbie_dark', '--targets', 'alacritty', '--no-reload')
         self.assertEqual(code, 0, error)
         selector = self.config / 'alacritty/theme.toml'

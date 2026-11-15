@@ -35,6 +35,10 @@ class SioyekTests(unittest.TestCase):
         self.addCleanup(self.env.stop)
         self.theme = self.root / 'theme.toml'
         self.theme.write_text('[colors.primary]\nbackground="#0a0f14"\nforeground="#98d1ce"\n')
+        commands = patch('chthm.cli.shutil.which',
+                         side_effect=lambda name: '/usr/bin/sioyek' if name == 'sioyek' else None)
+        commands.start()
+        self.addCleanup(commands.stop)
 
     def run_cli(self, *args):
         output, error = io.StringIO(), io.StringIO()

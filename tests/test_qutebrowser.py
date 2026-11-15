@@ -27,7 +27,8 @@ class QutebrowserTests(unittest.TestCase):
             'XDG_STATE_HOME': str(self.root / 'state')})
         environment.start()
         self.addCleanup(environment.stop)
-        commands = patch('chthm.cli.shutil.which', return_value=None)
+        commands = patch('chthm.cli.shutil.which',
+                         side_effect=lambda name, **kwargs: '/usr/bin/qutebrowser' if name == 'qutebrowser' else None)
         self.commands = commands.start()
         self.addCleanup(commands.stop)
 

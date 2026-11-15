@@ -161,7 +161,9 @@ Locked=1
         profile.mkdir(parents=True)
         profile.parent.joinpath("profiles.ini").write_text("[Profile0]\nIsRelative=1\nPath=profile\nDefault=1\n")
         env = {"HOME": str(self.root), "XDG_CONFIG_HOME": str(config), "XDG_STATE_HOME": str(self.root / "state"), "XDG_DATA_HOME": str(self.root / "data")}
-        with patch.dict(os.environ, env), patch("chthm.cli.reload_apps") as reloads:
+        available = lambda name, config: None if name in {"rofi", "firefox", "qt6ct"} else "not installed"
+        with patch.dict(os.environ, env), patch("chthm.cli.reload_apps") as reloads, \
+                patch("chthm.cli.unavailable_reason", side_effect=available):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 code = main(["--targets", "rofi,firefox,qt6ct", "--no-reload"])
             self.assertEqual(code, 0)
@@ -184,7 +186,8 @@ Locked=1
         theme = self.root / "theme.toml"
         theme.write_text('[colors.primary]\nbackground="#0a0f14"\nforeground="#98d1ce"\n')
         config = self.root / "config"
-        with patch.dict(os.environ, {"HOME": str(self.root), "XDG_CONFIG_HOME": str(config), "XDG_STATE_HOME": str(self.root / "state")}):
+        with patch.dict(os.environ, {"HOME": str(self.root), "XDG_CONFIG_HOME": str(config), "XDG_STATE_HOME": str(self.root / "state")}), \
+                patch("chthm.cli.unavailable_reason", side_effect=lambda name, options: None if name == "firefox" else "not installed"):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 result = main([str(theme), "--firefox-profile", str(self.root / "missing"), "--no-reload"])
         self.assertEqual(result, 1)

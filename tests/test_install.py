@@ -42,6 +42,13 @@ class InstallerTests(unittest.TestCase):
         self.download_patch = patch.object(installer, "download_theme_archive", return_value=theme_archive())
         self.download = self.download_patch.start()
         self.addCleanup(self.download_patch.stop)
+        real_which = installer.shutil.which
+        self.commands_patch = patch.object(
+            installer.shutil, "which",
+            side_effect=lambda name, **kwargs: (f"/usr/bin/{name}"
+                if name in {"alacritty", "qtile", "qutebrowser"} else real_which(name, **kwargs)))
+        self.commands_patch.start()
+        self.addCleanup(self.commands_patch.stop)
 
     def test_install_configures_shell_and_repeat_preserves_one_block(self):
         rc = self.home / '.zshrc'
@@ -77,6 +84,7 @@ class InstallerTests(unittest.TestCase):
     def test_download_can_be_removed_after_install(self):
         download = Path(self.temp.name) / 'download'
         shutil.copytree(SOURCE / 'src', download / 'src', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(SOURCE / 'themes', download / 'themes')
         shutil.copyfile(SOURCE / 'chthm.zsh', download / 'chthm.zsh')
         installer.install(download)
         shutil.rmtree(download)
@@ -250,6 +258,20 @@ class InstallerTests(unittest.TestCase):
         self.assertRegex(namespace['chthm_background'], r'^#[0-9a-fA-F]{6}$')
         self.assertEqual(namespace['text'], '\n' + installer.QTILE_BEGIN + '\n' + installer.QTILE_END + '\n')
 
+    def test_qtile_snippet_enables_qt6ct_only_with_managed_environment_entry(self):
+        loader = SOURCE / 'src/chthm/qtile_palette.py'
+        updated = installer.qtile_config('', loader)
+        marker = self.home / '.config/environment.d/60-chthm-qt6ct.conf'
+        with patch.dict(os.environ, {'XDG_CONFIG_HOME': str(self.home / '.config')}, clear=False), \
+                patch.object(shutil, 'which', return_value='/usr/bin/qt6ct'):
+            os.environ.pop('QT_QPA_PLATFORMTHEME', None)
+            exec(compile(updated, 'config.py', 'exec'), {})
+            self.assertNotIn('QT_QPA_PLATFORMTHEME', os.environ)
+            marker.parent.mkdir(parents=True)
+            marker.write_text('QT_QPA_PLATFORMTHEME=qt6ct\n')
+            exec(compile(updated, 'config.py', 'exec'), {})
+            self.assertEqual(os.environ['QT_QPA_PLATFORMTHEME'], 'qt6ct')
+
     def test_qutebrowser_palette_is_independent_and_keeps_other_settings(self):
         import runpy
         from types import SimpleNamespace
@@ -281,6 +303,20 @@ class InstallerTests(unittest.TestCase):
     def test_absent_qutebrowser_config_is_not_created(self):
         installer.install(SOURCE)
         self.assertFalse((self.home / '.config/qutebrowser').exists())
+
+    def test_uninstalled_applications_leave_stale_configs_untouched(self):
+        files = {
+            self.home / '.config/alacritty/theme.toml': 'invalid = true\n',
+            self.home / '.config/qtile/config.py': 'if then\n',
+            self.home / '.config/qutebrowser/config.py': 'if then\n',
+        }
+        for filename, content in files.items():
+            filename.parent.mkdir(parents=True, exist_ok=True)
+            filename.write_text(content)
+        with patch.object(installer.shutil, 'which', return_value=None):
+            installer.install(SOURCE)
+        for filename, content in files.items():
+            self.assertEqual(filename.read_text(), content)
 
     def test_template_palettes_are_connected_and_restore_defaults_without_block(self):
         import runpy
@@ -447,6 +483,15 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(clementine.read_text(), original)
         self.assertFalse((self.home / '.config/qt6ct').exists())
 
+    def test_qt6ct_without_a_default_qt6_application_is_not_configured(self):
+        with patch.object(installer.shutil, 'which',
+                          side_effect=lambda name: '/usr/bin/qt6ct' if name == 'qt6ct' else None):
+            self.assertEqual(
+                installer.qt6ct_install_plan(
+                    SOURCE, self.home / '.config', self.home / '.local/share'),
+                ([], []))
+        self.assertFalse((self.home / '.config/qt6ct').exists())
+
     def test_qt6ct_setup_rejects_overlapping_destinations(self):
         settings = self.home / '.config/chthm/config.toml'
         settings.parent.mkdir(parents=True)
@@ -517,8 +562,38 @@ class InstallerTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             installer.install(SOURCE)
         self.assertEqual((self.home / '.local/share/chthm/themes/offline.toml').read_text(), 'local original')
+        self.assertTrue((self.home / '.local/share/chthm/themes/kimbie_dark.toml').is_file())
         self.assertTrue((self.home / '.local/bin/chthm').is_file())
         self.assertTrue((legacy / 'offline.toml').is_file())
+
+    def test_download_failure_installs_working_bundled_default_on_fresh_system(self):
+        self.download.side_effect = OSError('offline')
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            installer.install(SOURCE)
+        collection = self.home / '.local/share/chthm/themes'
+        fallback = collection / 'kimbie_dark.toml'
+        self.assertEqual(fallback.read_bytes(), (SOURCE / 'themes/kimbie_dark.toml').read_bytes())
+        provenance = collection / '.sources/bundled-kimbie-dark'
+        self.assertTrue((provenance / 'LICENSE').is_file())
+        self.assertIn(installer.THEME_REPOSITORY, (provenance / 'SOURCE.txt').read_text())
+        environment = dict(os.environ)
+        environment.pop('PYTHONPATH', None)
+        result = subprocess.run(
+            [str(self.home / '.local/bin/chthm'), '--dry-run', '--no-reload', '--targets', ''],
+            env=environment, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(str(fallback), result.stderr)
+
+    def test_bundled_fallback_never_replaces_an_existing_default(self):
+        self.download.side_effect = OSError('offline')
+        fallback = self.home / '.local/share/chthm/themes/kimbie_dark.toml'
+        fallback.parent.mkdir(parents=True)
+        fallback.write_text('my locally edited default\n')
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            installer.install(SOURCE)
+        self.assertEqual(fallback.read_text(), 'my locally edited default\n')
+        self.assertFalse(
+            (fallback.parent / '.sources/bundled-kimbie-dark').exists())
 
     def test_upstream_fetch_preserves_existing_user_edits(self):
         collection = self.home / 'collection'

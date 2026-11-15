@@ -32,6 +32,10 @@ class Qt6ctTests(unittest.TestCase):
             'XDG_STATE_HOME': str(self.root / 'state')})
         environment.start()
         self.addCleanup(environment.stop)
+        commands = patch('chthm.cli.shutil.which',
+                         side_effect=lambda name: '/usr/bin/qt6ct' if name == 'qt6ct' else None)
+        commands.start()
+        self.addCleanup(commands.stop)
 
     def apply(self, *arguments):
         error = io.StringIO()
@@ -98,6 +102,32 @@ class Qt6ctTests(unittest.TestCase):
         self.assertEqual(self.apply(*arguments)[0], 0)
         self.assertTrue(palette.exists())
         self.assertIn(str(palette), settings.read_text())
+
+    def test_installed_qt6_target_automatically_uses_qt6ct(self):
+        def installed(name):
+            return f'/usr/bin/{name}' if name in {'pcmanfm-qt', 'qt6ct'} else None
+        error = io.StringIO()
+        with patch('chthm.cli.shutil.which', side_effect=installed), \
+                contextlib.redirect_stderr(error), contextlib.redirect_stdout(io.StringIO()):
+            result = main([str(self.theme), '--targets', 'pcmanfm-qt', '--no-reload'])
+        self.assertEqual(result, 0, error.getvalue())
+        self.assertTrue((self.config / 'qt6ct/colors/chthm.conf').is_file())
+        self.assertEqual((self.config / 'environment.d/60-chthm-qt6ct.conf').read_text(),
+                         'QT_QPA_PLATFORMTHEME=qt6ct\n')
+        self.assertFalse((self.config / 'pcmanfm-qt').exists())
+        self.assertIn('also affects other Qt 6 apps', error.getvalue())
+
+    def test_qt6ct_integration_can_be_disabled(self):
+        def installed(name):
+            return f'/usr/bin/{name}' if name in {'pcmanfm-qt', 'qt6ct'} else None
+        error = io.StringIO()
+        with patch('chthm.cli.shutil.which', side_effect=installed), \
+                contextlib.redirect_stderr(error), contextlib.redirect_stdout(io.StringIO()):
+            result = main([str(self.theme), '--targets', 'pcmanfm-qt,qt6ct',
+                           '--no-qt6ct', '--no-reload'])
+        self.assertEqual(result, 0, error.getvalue())
+        self.assertFalse((self.config / 'qt6ct').exists())
+        self.assertIn('Skipping qt6ct: disabled', error.getvalue())
 
     def test_install_cleanup_removes_only_the_previous_pcmanfm_stylesheet_override(self):
         clementine = self.config / 'Clementine/Clementine.conf'

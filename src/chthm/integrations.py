@@ -156,13 +156,13 @@ def profile_path(root, value, relative=True):
     return (root / candidate if relative and not candidate.is_absolute() else candidate).absolute()
 
 
-def firefox_profiles(roots, explicit=None):
+def firefox_profiles(roots, explicit=None, application="Firefox"):
     """Respect install defaults before old ProfileN/Default flags."""
     if explicit is not None:
         profiles = list(dict.fromkeys(Path(p).resolve() for p in explicit))
         for profile in profiles:
             if not profile.is_dir():
-                raise ValueError(f"Firefox profile directory not found: {profile}")
+                raise ValueError(f"{application} profile directory not found: {profile}")
         return profiles
     for root in roots:
         registry = root / "profiles.ini"
@@ -189,11 +189,12 @@ def firefox_profiles(roots, explicit=None):
                     legacy_defaults.add(profile)
         candidates = defaults or legacy_defaults or set(profiles)
         if len(candidates) > 1:
-            raise ValueError(f"Multiple Firefox defaults in {root}; select --firefox-profile explicitly")
+            option = "--" + application.lower() + "-profile"
+            raise ValueError(f"Multiple {application} defaults in {root}; select {option} explicitly")
         if candidates:
             selected = candidates.pop()
             if not selected.is_dir():
-                raise ValueError(f"Firefox default profile does not exist: {selected}")
+                raise ValueError(f"{application} default profile does not exist: {selected}")
             return [selected.resolve()]
     return []
 
@@ -252,7 +253,7 @@ def firefox_css(values):
 }}'''
 
 
-def firefox_writes(profile, values):
+def firefox_writes(profile, values, application="firefox"):
     chrome, user = profile / "chrome/userChrome.css", profile / "user.js"
     homepage = profile / "chthm-home.html"
     preferences = '\n'.join([
@@ -262,8 +263,8 @@ def firefox_writes(profile, values):
     ])
     return [
         (homepage, blank_page_html(values["CHTHM_BACKGROUND"], values["CHTHM_FOREGROUND"]), True),
-        (chrome, managed_block(read_text(chrome), firefox_css(values), "firefox"), True),
-        (user, managed_block(read_text(user), preferences, "firefox", "js"), True),
+        (chrome, managed_block(read_text(chrome), firefox_css(values), application), True),
+        (user, managed_block(read_text(user), preferences, application, "js"), True),
     ]
 
 

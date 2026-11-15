@@ -1,7 +1,9 @@
 # Installed by install.py; source this at the end of .zshrc.
 # Keep all theme settings in the Python program's configuration file.
-# Give Qt applications launched from this shell the shared platform palette.
-if (( $+commands[qt6ct] )); then
+# Give Qt applications launched from this shell the shared platform palette
+# only after chthm has enabled its managed qt6ct environment entry.
+if (( $+commands[qt6ct] )) &&
+   [[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/environment.d/60-chthm-qt6ct.conf" ]]; then
     export QT_QPA_PLATFORMTHEME=qt6ct
 fi
 

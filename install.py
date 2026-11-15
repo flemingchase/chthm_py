@@ -26,6 +26,9 @@ THEME_REPOSITORY = "https://github.com/alacritty/alacritty-theme"
 THEME_ARCHIVE = "https://codeload.github.com/alacritty/alacritty-theme/zip/refs/heads/master"
 MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
 MAX_THEME_BYTES = 1024 * 1024
+FALLBACK_THEME = "kimbie_dark.toml"
+FALLBACK_THEME_LICENSE = "alacritty-theme.LICENSE"
+QT6_DEFAULT_APPLICATIONS = ("pcmanfm-qt", "qutebrowser", "sioyek", "clementine")
 
 
 def expanded(value):
@@ -87,10 +90,14 @@ def python_palette_config(text, loader, application):
     alias = "colors = chthm_colors\n" if palette is not None else ""
     session = ""
     if application == "Qtile":
-        session = ('import os as _chthm_os\nimport shutil as _chthm_shutil\n'
-                   'if _chthm_shutil.which("qt6ct"):\n'
+        session = ('import os as _chthm_os\nimport pathlib as _chthm_pathlib\n'
+                   'import shutil as _chthm_shutil\n'
+                   '_chthm_config = _chthm_pathlib.Path(_chthm_os.environ.get('
+                   '"XDG_CONFIG_HOME") or _chthm_pathlib.Path.home() / ".config")\n'
+                   'if (_chthm_shutil.which("qt6ct") and (_chthm_config / '
+                   '"environment.d/60-chthm-qt6ct.conf").is_file()):\n'
                    '    _chthm_os.environ["QT_QPA_PLATFORMTHEME"] = "qt6ct"\n'
-                   'del _chthm_os, _chthm_shutil\n')
+                   'del _chthm_config, _chthm_os, _chthm_pathlib, _chthm_shutil\n')
     begin = f"# >>> chthm {application} palette >>>"
     end = f"# <<< chthm {application} palette <<<"
     filename = f"{application.lower()}/config.py"
@@ -209,6 +216,26 @@ def import_themes(destination, source):
                 shutil.copy2(filename, target)
                 count += 1
     return count
+
+
+def install_bundled_fallback(source, destination):
+    """Install the bundled default without replacing a user's existing file."""
+    palette = source / "themes" / FALLBACK_THEME
+    license_file = source / "themes" / FALLBACK_THEME_LICENSE
+    target = destination / FALLBACK_THEME
+    if target.exists() or target.is_symlink():
+        return False
+    if not palette.is_file() or not license_file.is_file():
+        raise ValueError("Downloaded package is missing the bundled fallback theme or its license")
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(palette, target)
+    provenance = destination / ".sources/bundled-kimbie-dark"
+    write_file(provenance / "LICENSE", license_file.read_text(encoding="utf-8"))
+    write_file(
+        provenance / "SOURCE.txt",
+        f"Bundled fallback: {FALLBACK_THEME}\nOriginal collection: {THEME_REPOSITORY}\n",
+    )
+    return True
 
 
 def download_theme_archive():
@@ -362,7 +389,8 @@ def alacritty_import_plan(source, config):
 
 
 def qt6ct_install_plan(source, config, data):
-    if not shutil.which("qt6ct"):
+    if (not shutil.which("qt6ct")
+            or not any(shutil.which(application) for application in QT6_DEFAULT_APPLICATIONS)):
         return [], []
     sys.path.insert(0, str(source / "src"))
     try:
@@ -398,19 +426,24 @@ def install(source, theme_source=None):
     original = zshrc.read_text(encoding="utf-8") if zshrc.exists() else ""
     updated = shell_config(original, integration)
     validate_zsh(updated)
-    if not (source / "src/chthm/cli.py").is_file() or not (source / "chthm.zsh").is_file():
+    if (not (source / "src/chthm/cli.py").is_file()
+            or not (source / "chthm.zsh").is_file()
+            or not (source / "themes" / FALLBACK_THEME).is_file()
+            or not (source / "themes" / FALLBACK_THEME_LICENSE).is_file()):
         raise ValueError("Run install.py from a complete downloaded chthm source package")
     if library.resolve().is_relative_to(source.resolve()):
         raise ValueError("Installation directory must be outside the downloaded source tree")
     # Preflight both existing configs before performing any installation writes.
     config_updates = []
     for application, transform in (("qtile", qtile_config), ("qutebrowser", qutebrowser_config)):
+        if not shutil.which(application):
+            continue
         filename = config / application / "config.py"
         if filename.is_file():
             updated_config = transform(filename.read_bytes().decode("utf-8"),
                                        library / "chthm/qtile_palette.py")
             config_updates.append((filename, updated_config))
-    alacritty_updates = alacritty_import_plan(source, config)
+    alacritty_updates = alacritty_import_plan(source, config) if shutil.which("alacritty") else []
     collection = data / "chthm/themes"
     legacy = config / "alacritty/themes/themes"
     if theme_source is not None:
@@ -428,8 +461,10 @@ def install(source, theme_source=None):
             print(f"Warning: could not download upstream themes: {error}", file=sys.stderr)
             count = import_themes(collection, legacy if legacy.is_dir() else None)
             print(f"Using local themes in {collection}; imported {count} fallback files")
+            if install_bundled_fallback(source, collection):
+                print(f"Installed bundled offline fallback: {collection / FALLBACK_THEME}")
             if not any(collection.glob("*.toml")):
-                print("No themes available yet. Retry installation online or use --theme-source DIRECTORY.", file=sys.stderr)
+                raise ValueError("No usable themes are available; repair the theme collection and reinstall")
     # Install a private package copy; it does not depend on the download location.
     library.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source / "src/chthm", library / "chthm", dirs_exist_ok=True,
