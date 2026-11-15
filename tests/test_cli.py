@@ -45,6 +45,7 @@ class ThemeTests(unittest.TestCase):
         target.chmod(0o640)
         code, out, err = self.run_cli("--no-reload", "--shell")
         self.assertEqual(code, 0, err)
+        self.assertEqual(err, "")
         self.assertIn("export CHTHM_BACKGROUND=", out)
         self.assertIn('set font "Mono 12"', target.read_text())
         self.assertEqual(target.read_text().count("set default-bg"), 1)
@@ -56,6 +57,13 @@ class ThemeTests(unittest.TestCase):
         self.assertTrue((self.config / "sioyek/prefs_user.config").is_file())
         self.assertTrue((self.config / "qt6ct/colors/chthm.conf").is_file())
         self.reload_mock.assert_not_called()
+
+    def test_successful_normal_application_is_quiet(self):
+        code, out, err = self.run_cli("--targets", "alacritty", "--no-reload")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
+        self.assertTrue((self.config / "alacritty/chthm-colors.toml").is_file())
 
     def test_dry_run_and_invalid_theme_write_nothing(self):
         before = sorted(self.config.rglob("*"))

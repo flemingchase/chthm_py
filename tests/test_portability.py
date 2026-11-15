@@ -37,7 +37,7 @@ class PortabilityTests(unittest.TestCase):
         result, output, error = self.run_cli('--shell')
         self.assertEqual(result, 0, error)
         self.assertIn("export CHTHM_BACKGROUND='#112233'", output)
-        self.assertIn('Skipping', error)
+        self.assertEqual(error, '')
         self.assertFalse(self.config.exists())
         self.assertFalse(self.data.exists())
 
@@ -48,7 +48,7 @@ class PortabilityTests(unittest.TestCase):
         result, _, error = self.run_cli()
         self.assertEqual(result, 0, error)
         self.assertNotIn('#112233', rofi.read_text())
-        self.assertIn('Skipping rofi: not installed', error)
+        self.assertEqual(error, '')
         self.assertEqual({p.name for p in self.config.iterdir()}, {'rofi'})
         self.assertFalse(self.data.exists())
 
@@ -66,15 +66,14 @@ class PortabilityTests(unittest.TestCase):
         settings.write_text('targets=["rofi", "sioyek"]\n')
         result, _, error = self.run_cli()
         self.assertEqual(result, 0, error)
-        self.assertIn('Skipping rofi', error)
-        self.assertIn('Skipping sioyek', error)
+        self.assertEqual(error, '')
         self.assertEqual({p.name for p in self.config.iterdir()}, {'chthm'})
 
     def test_explicit_targets_and_custom_destinations_cannot_preconfigure_apps(self):
         result, _, error = self.run_cli('--targets', 'sioyek')
         self.assertEqual(result, 0, error)
         self.assertFalse((self.config / 'sioyek/prefs_user.config').exists())
-        self.assertIn('Skipping sioyek: not installed', error)
+        self.assertEqual(error, '')
         custom = self.root / 'future-reader/prefs_user.config'
         result, _, error = self.run_cli('--sioyek-config', str(custom))
         self.assertEqual(result, 0, error)
@@ -111,13 +110,15 @@ class PortabilityTests(unittest.TestCase):
     def test_dry_run_probes_presence_without_privilege_or_writes(self):
         result, _, error = self.run_cli('--dry-run')
         self.assertEqual(result, 0, error)
+        self.assertIn('Skipping', error)
         self.assertFalse(self.config.exists())
         self.assertFalse(self.data.exists())
 
     def test_invalid_theme_is_still_an_error_when_no_apps_exist(self):
         self.theme.write_text('[colors.primary]\nbackground="invalid"\nforeground="#ffffff"\n')
-        result, _, _ = self.run_cli()
+        result, _, error = self.run_cli()
         self.assertEqual(result, 1)
+        self.assertIn('chthm: colors.primary.background must have the form #RRGGBB', error)
         self.assertFalse(self.config.exists())
 
 

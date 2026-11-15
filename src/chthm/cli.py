@@ -318,12 +318,8 @@ def main(argv=None):
         if config["reload"]:
             reload_apps(values, qtile_enabled="qtile" in targets, qutebrowser_enabled="qutebrowser" in targets,
                         qt6ct_enabled="qt6ct" in targets)
-        for notice in notices:
-            print(notice, file=sys.stderr)
         if args.shell:
             print(exports(values), end="")
-        else:
-            print(f"Applied theme: {theme.name}", file=sys.stderr)
         return 0
     except (OSError, ValueError, KeyError, TypeError, AttributeError, configparser.Error) as error:
         print(f"chthm: {error}", file=sys.stderr)

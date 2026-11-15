@@ -174,6 +174,12 @@ chthm --help
 Running chthm without a theme argument applies default_theme, initially
 kimbie_dark. It does not reapply the saved current selection.
 
+A successful theme application is quiet. chthm writes to standard error only
+when an error occurs or an explicit reload hook fails. Read-only commands such
+as `list`, `exports`, `--help` and `--version` still produce their requested
+output, and `--shell` still prints exports. `--dry-run` is intentionally verbose
+because its purpose is to preview files, skipped targets and application notes.
+
 The zsh function exports the selected colors into the current shell. Running
 `command chthm` bypasses that function and still updates files, but cannot
 change its parent shell's environment. `chthm exports` reads palette exports
@@ -215,7 +221,7 @@ target needs it and qt6ct itself is installed.
 A target is available only when chthm finds one of its executables, an executable
 path supplied by the user, or a recognized installed Flatpak desktop entry.
 An old configuration file is not installation evidence. Missing applications
-are reported and skipped without creating or editing their files. `--targets`,
+are silently skipped without creating or editing their files. `--targets`,
 `--add-targets` and application destination options never bypass this check.
 Firefox and LibreWolf additionally need a usable profile before their adapters
 can plan any writes. chthm does not install target applications.
@@ -261,9 +267,10 @@ its own configuration syntax and safe files to edit. Add the adapter to
 `src/chthm/targets.py` in two parts:
 
 1. Define a plan function. It receives the selected `Theme` and resolved
-   configuration, and returns a list of planned writes plus user notices. A
-   write is `(destination, content, backup_existing_file)`. The plan function
-   should not install software, start the application or write files directly.
+   configuration, and returns a list of planned writes plus optional dry-run
+   notes. A write is `(destination, content, backup_existing_file)`. The plan
+   function should not install software, start the application or write files
+   directly.
 2. Add a `Target` entry to the `TARGETS` registry with the executable names
    that prove the application is installed.
 
@@ -602,8 +609,8 @@ also control surfaces or palettes that do not simply inherit QPalette.
 
 qt6ct is a process-wide platform theme, not an application-specific stylesheet.
 Its palette can therefore affect every Qt 6 application that inherits qt6ct,
-including Qt 6 applications outside the selected target list. chthm reports
-this whenever it enables the shared layer. Use --no-qt6ct for one invocation,
+including Qt 6 applications outside the selected target list. A dry run reports
+this when it would enable the shared layer. Use --no-qt6ct for one invocation,
 or set `qt6ct_integration = false` in config.toml, if that broader effect is
 not wanted. Older or differently packaged builds that use Qt 5 do not inherit
 qt6ct.

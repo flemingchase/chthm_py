@@ -131,7 +131,7 @@ class TerminalTests(unittest.TestCase):
         self.assertIn("font=Keep Me", foot_config.read_text())
         self.assertIn("lines=1000", foot_config.read_text())
         self.assertIn("include=" + str(self.config / "foot/chthm.ini"), foot_config.read_text())
-        self.assertIn("foot: restart open terminals", error)
+        self.assertEqual(error, "")
 
         for filename, original in seeded.items():
             self.assertEqual(Path(str(filename) + ".bak").read_text(), original)
@@ -178,8 +178,7 @@ class TerminalTests(unittest.TestCase):
         self.assertNotIn("chthm", (self.config / "wezterm/wezterm.lua").read_text())
         self.assertNotIn("chthm", (self.config / "foot/foot.ini").read_text())
         self.assertFalse((self.config / "ghostty/chthm-colors.conf").exists())
-        for name in ("ghostty", "kitty", "wezterm", "foot"):
-            self.assertIn(f"Skipping {name}: not installed", error)
+        self.assertEqual(error, "")
 
     def test_ghostty_uses_existing_legacy_config_name(self):
         legacy = self.config / "ghostty/config"

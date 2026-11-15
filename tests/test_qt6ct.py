@@ -115,7 +115,7 @@ class Qt6ctTests(unittest.TestCase):
         self.assertEqual((self.config / 'environment.d/60-chthm-qt6ct.conf').read_text(),
                          'QT_QPA_PLATFORMTHEME=qt6ct\n')
         self.assertFalse((self.config / 'pcmanfm-qt').exists())
-        self.assertIn('also affects other Qt 6 apps', error.getvalue())
+        self.assertEqual(error.getvalue(), '')
 
     def test_qt6ct_integration_can_be_disabled(self):
         def installed(name):
@@ -127,7 +127,7 @@ class Qt6ctTests(unittest.TestCase):
                            '--no-qt6ct', '--no-reload'])
         self.assertEqual(result, 0, error.getvalue())
         self.assertFalse((self.config / 'qt6ct').exists())
-        self.assertIn('Skipping qt6ct: disabled', error.getvalue())
+        self.assertEqual(error.getvalue(), '')
 
     def test_install_cleanup_removes_only_the_previous_pcmanfm_stylesheet_override(self):
         clementine = self.config / 'Clementine/Clementine.conf'
